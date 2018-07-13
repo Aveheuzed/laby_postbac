@@ -66,7 +66,7 @@ class Laby :
                                 try :
                                         row = next(self.from_file)
                                 except StopIteration :
-                                        self.from_file = None
+                                        self.fom_file = None
                                 else :
                                         path.mk_child(int(row[0]))
                                         move = getattr(path,row[1:-1])()
@@ -120,40 +120,28 @@ class Laby :
                 self.turtles = [x for i,x in enumerate(self.turtles)\
                                 if i not in remove] + adding
 
-        def is_isolated(self,walls):
-                """Given the 2 walls a Path is about to draw (including the forks),
-                tells wether that Path should make 2 forks to keep the Laby perfect."""
-                # We parse the cells bordering the walls ; if they are going to be enclosed,
-                #  then forks must be done
-                # Moreover, to avoid large holes (more than 2 cells), we search then a path
-                # to the void for those cells ; if we don't find one, forks must be done
-                # note : the second test is sufficient alone (I think), but it is very slow,
-                # so that the first one saves time in most cases
-                allwalls = self.walls|walls
+        def is_isolated(self, walls):
+                xm,xM,ym,yM = 0,0,0,0
+                for x,y in self.pos_tracker :
+                        if x < xm :
+                                xm = x
+                        elif x > xM :
+                                xM = x
+                        if y < ym :
+                                ym = y
+                        elif y > yM :
+                                yM = y
+                built = Area((xm,ym),(xM,yM))
                 for wall in walls :
-                        for cell in Converter.wtoc(self.unit,*wall):
-                                # first test
-                                i = 0
-                                # the 3 following lines make sure the whole available space is being filled
-                                # by counting the borders as walls
-                                for neighbour in Converter.ctoc(self.unit,*cell):
-                                        if neighbour not in self.border :
-                                                i += 1
-                                if len(Converter.ctow(self.unit,*cell)&allwalls)+i >= 4 :
+                        for cell in Converter.wtoc(self.unit, *wall):
+                                if all(not self.find_path(cell, turtl, _limits=built) for turtl in self.pos_turtle.values()) :
                                         return True
-
-                                # second test
-                                for neighbour in Converter.ctoc(self.unit,*cell):
-                                        if neighbour not in self.pos_tracker and neighbour in self.border :
-                                                self._done = set()
-                                                if not self.find_out(cell):
-                                                        return True
-
                 return False
 
-        def find_out(self,cell, _limits=None):
-                """Try to find a path to the void, running recursively ;
-                If returns False, there is no path ; If returns True, one has been found"""
+
+
+        def find_path(self, a, b=None, _limits=None, _done=set()):
+                """Tries to find a path between a and b (b=None : path to void)"""
                 # how far did we build yet ?
                 if _limits is None :
                         xm,xM,ym,yM = 0,0,0,0
@@ -170,16 +158,19 @@ class Laby :
                 else :
                         built = _limits
 
-                for c in Converter.ctoc(self.unit, *cell) :
-                        if c in self.pos_tracker or c in self._done : # no way / way already processed
-                                continue
-                        elif c not in built : # void reached
-                                return True
-                        else :
-                                # spreading over
-                                self._done.add(c)
-                                if self.find_out(c,built) :
-                                        return True
+                for c in Converter.ctoc(self.unit, *a):
+                    if c in self.pos_tracker or c in _done : # no way / way already processed
+                            continue
+                    elif c not in built :
+                        if b is None: # void reached
+                            return True
+                    elif c == b :
+                        return True
+                    else :
+                            # spreading over
+                            _done.add(c)
+                            if self.find_path(c,b,built,_done) :
+                                    return True
                 return False
 
 
@@ -191,7 +182,7 @@ if __name__ == '__main__':
         sc = turtle.TurtleScreen(can)
         sc.tracer(n=120)# this line is MAGIC !!!!
         out = open("out.txt","wt")
-        laby = Laby(sc,unit=40,border=Area((100,100),(-100,-100)),from_file=open("/home/aveheuzed/out2.txt"), to_file=out)
+        laby = Laby(sc,unit=10,border=Area((100,100),(-100,-100)), to_file=out)
         # _ = clock()
         for loop in laby :
                 pass
